@@ -14,10 +14,25 @@ public enum SizingType
 
 [DisallowMultipleComponent]
 [RequireComponent(typeof(RectTransform))]
+[RequireComponent(typeof(MeshFilter))]
+[RequireComponent(typeof(MeshRenderer))]
 [ExecuteAlways]
 public abstract class UIComponent : MonoBehaviour
 {
-    public RectTransform rectTransform { get; private set; }
+    RectTransform rt;
+    public RectTransform rectTransform
+    { 
+        get
+        {
+            if (!rt)
+                rt = GetComponent<RectTransform>();
+            return rt;
+        }
+    }
+
+    protected MeshFilter meshFilter;
+    protected MeshRenderer meshRenderer;
+    protected Mesh mesh;
 
     [Header("Sizing")]
     public SizingType sizingX = SizingType.FitContent;
@@ -31,10 +46,30 @@ public abstract class UIComponent : MonoBehaviour
 
     protected virtual void Awake()
     {
-        this.rectTransform = GetComponent<RectTransform>();
+        Debug.Log($"{this} AWAKE");
+
         this.rectTransform.anchorMin = Vector2.zero;
         this.rectTransform.anchorMax = Vector2.zero;
         this.rectTransform.pivot = Vector2.zero;
+
+        meshFilter = GetComponent<MeshFilter>();
+        meshRenderer = GetComponent<MeshRenderer>();
+
+        try
+        {
+            meshRenderer.material = UIManager.instance.uiMaterial;
+            mesh = new Mesh();
+            mesh.name = $"mesh_{gameObject.name}";
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Couldn't find material. {e.StackTrace}");
+        }
+    }
+
+    void OnEnable()
+    {
+        meshFilter.mesh = mesh;
     }
 
     public Vector2 Measure(Vector2 availableSize)

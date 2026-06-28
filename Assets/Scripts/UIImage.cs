@@ -24,7 +24,14 @@ public class UIImage : UIComponent
 
     public override void OnBuildMesh(UIMeshBuilder meshBuilder)
     {
-        Debug.Log($"{this} OnBuildMesh");
-        meshBuilder.BuildQuad(this);
+        meshBuilder.AddQuad(this);
+        if (!mesh)
+            return;
+
+        mesh.Clear();
+        
+        var quad = meshBuilder.BuildQuad(this);
+        mesh.vertices = quad.vertices;
+        mesh.triangles = quad.indices;
     }
 }

@@ -20,6 +20,9 @@ public class UICanvas : MonoBehaviour
     public void OnEnable()
     {
         rectTransform = GetComponent<RectTransform>();
+        rectTransform.anchorMin = Vector2.zero;
+        rectTransform.anchorMax = Vector2.zero;
+        rectTransform.pivot = Vector2.zero;
         rectTransform.sizeDelta = new Vector2(Screen.width, Screen.height) / pixelPerPoint;
         transform.localScale = Vector3.one * pixelPerPoint;
         Refresh();

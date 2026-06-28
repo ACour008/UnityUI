@@ -29,7 +29,7 @@ public class UICanvasRenderer : ScriptableRendererFeature
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
 
-            using (var builder = renderGraph.AddRasterRenderPass<PassData>("Quad", out var passData))
+            using (var builder = renderGraph.AddRasterRenderPass<PassData>("Canvas", out var passData))
             {
                 if (!UIManager.instance.canvas)
                     return;
@@ -45,8 +45,8 @@ public class UICanvasRenderer : ScriptableRendererFeature
                 builder.SetRenderFunc((PassData data, RasterGraphContext ctx) =>
                 {
                     var cmd = ctx.cmd;
-                    Vector2 min = new Vector2(0, Screen.height);
-                    Vector2 max = new Vector2(Screen.width, 0);
+                    Vector2 min = new Vector2(0, 0);
+                    Vector2 max = new Vector2(Screen.width, Screen.height);
 
                     Matrix4x4 projection;
                     if (SystemInfo.graphicsUVStartsAtTop)
@@ -58,11 +58,6 @@ public class UICanvasRenderer : ScriptableRendererFeature
                     cmd.DrawMesh(passData.mesh, Matrix4x4.identity, data.material);
                 });
             }
-        }
-
-        public void RefreshMesh()
-        {
-            
         }
 
         public void Dispose()
@@ -88,6 +83,7 @@ public class UICanvasRenderer : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
-        renderer.EnqueuePass(canvasPass);
+        if (renderingData.cameraData.camera.cameraType == CameraType.Game)
+            renderer.EnqueuePass(canvasPass);
     }
 }

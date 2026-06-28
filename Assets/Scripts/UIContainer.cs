@@ -67,6 +67,7 @@ public class UIContainer : UIComponent
                     fillCount++;
             }
 
+            fillSpace = mainAxisSpace;
             if (fillCount > 0)
                 fillSpace = mainAxisSpace / (float)fillCount;
             
@@ -171,5 +172,13 @@ public class UIContainer : UIComponent
             measuredSize.y = availableSize.y;
         else if (sizingY == SizingType.FitContent)
             measuredSize.y = contentSize.y;
+    }
+
+    public override void OnBuildMesh(UIMeshBuilder meshBuilder)
+    {
+        //todo: add background sprite
+
+        foreach (var child in children)
+            child.BuildMesh(meshBuilder);
     }
 }

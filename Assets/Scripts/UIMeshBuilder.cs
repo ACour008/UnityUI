@@ -1,6 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+public class Quad
+{
+    public Vector3[] vertices = new Vector3[4];
+    public int[] indices = new int[6];
+}
+
 public class UIMeshBuilder
 {
     Mesh mesh;
@@ -8,7 +14,21 @@ public class UIMeshBuilder
     List<Vector3> allVertices = new List<Vector3>();
     List<int> allIndices = new List<int>();
     
-    public void BuildQuad(UIComponent component)
+    public Quad BuildQuad(UIComponent component)
+    {
+        var quad = new Quad();
+        component.rectTransform.GetLocalCorners(quad.vertices);
+        quad.indices[0] = 0;
+        quad.indices[1] = 2;
+        quad.indices[2] = 1;
+        quad.indices[3] = 3;
+        quad.indices[4] = 2;
+        quad.indices[5] = 0;
+
+        return quad;    
+    }
+
+    public void AddQuad(UIComponent component)
     {
         int vertexCount = allVertices.Count;
         AddVertices(component);
@@ -20,14 +40,8 @@ public class UIMeshBuilder
         Vector3[] vertices = new Vector3[4];
 
         // bottom-left (0), top-left (1), top-right (2), bottom-right (3)
-        component.rectTransform.GetLocalCorners(vertices);
+        component.rectTransform.GetWorldCorners(vertices);
         allVertices.AddRange(vertices);
-        // for (int i = 0; i < vertices.Length; i++)
-        // {
-        //     var v = component.transform.localToWorldMatrix.MultiplyPoint3x4(vertices[i]);
-        //     Debug.Log(v);
-        //     allVertices.Add(v);
-        // }
     }
 
     void AddIndices(int indexOffset)
