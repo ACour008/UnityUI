@@ -46,8 +46,6 @@ public abstract class UIComponent : MonoBehaviour
 
     protected virtual void Awake()
     {
-        Debug.Log($"{this} AWAKE");
-
         this.rectTransform.anchorMin = Vector2.zero;
         this.rectTransform.anchorMax = Vector2.zero;
         this.rectTransform.pivot = Vector2.zero;

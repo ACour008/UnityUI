@@ -53,47 +53,52 @@ public class UIContainer : UIComponent
         float childCrossSize = 0;
         float childCrossPosition = 0;
         float cursor = 0;
+        float totalChildGap = Mathf.Max(0, (children.Count - 1) * childGap);
+        var childList = children;
 
         if (direction == AlignDirection.Vertical)
         {
-            mainAxisSpace = innerHeight - (children.Count - 1) * childGap;
-            cursor = padding.top;
-
-            foreach (var child in children)
+            mainAxisSpace = innerHeight - totalChildGap;
+            for (int i = 0; i < childList.Count; i++)
             {
+                var child = children[i];
                 if (child.sizingY != SizingType.Fill)
                     mainAxisSpace -= child.measuredSize.y;
                 else
                     fillCount++;
             }
-
-            fillSpace = mainAxisSpace;
-            if (fillCount > 0)
-                fillSpace = mainAxisSpace / (float)fillCount;
             
-            foreach (var child in children)
+            // the space remaining for children w/ fill y-sizing, split evenly
+            fillSpace = mainAxisSpace / Mathf.Max(1f, fillCount);
+            
+            cursor = innerHeight;
+            for (int i = 0; i < childList.Count; i++)
             {
+                var child = childList[i];
                 childMainSize = child.sizingY == SizingType.Fill ? fillSpace : child.measuredSize.y;
                 childCrossSize = child.sizingX == SizingType.Fill ? innerWidth : child.measuredSize.x;     
                 
+                float gap = i >= 1 ? childGap : 0;
+                // Calculate cursor here because pivot is bottom-left
+                // Need to account for height of child (mainSize) when calculating its y-position
+                cursor -= childMainSize + gap;
+
+                // calculate cross axis alignment (for vertical direction, cross axis is x-axis).
                 if (childAlignment == AxisAlignment.Start)
                     childCrossPosition = padding.left;
                 else if (childAlignment == AxisAlignment.Center)
-                    childCrossPosition = (innerWidth - childMainSize) / 2f;
+                    childCrossPosition = (innerWidth - childCrossSize) / 2f;
                 else if (childAlignment == AxisAlignment.End)
-                    childCrossPosition = innerWidth - childMainSize - padding.right;
+                    childCrossPosition = innerWidth - childCrossSize - padding.right;
 
                 var childRect = new Rect(childCrossPosition, cursor, childCrossSize, childMainSize);
                 child.Arrange(childRect);
-                cursor += childCrossSize + childGap;
             }
         }
         else if (direction == AlignDirection.Horizontal)
         {
-            mainAxisSpace = innerWidth - (children.Count - 1) * childGap;
-            cursor = padding.left;
-
-            foreach (var child in children)
+            mainAxisSpace = innerWidth - totalChildGap;
+            foreach (var child in childList)
             {
                 if (child.sizingX != SizingType.Fill)
                     mainAxisSpace -= child.measuredSize.x;
@@ -101,14 +106,15 @@ public class UIContainer : UIComponent
                     fillCount++;
             }
 
-            if (fillCount > 0)
-                fillSpace = mainAxisSpace / (float)fillCount;
-
-            foreach (var child in children)
+            fillSpace = mainAxisSpace / Mathf.Max(1f, fillCount);
+            cursor = padding.left;
+            for (int i = 0; i < childList.Count; i++)
             {
+                var child = childList[i];
                 childMainSize = child.sizingX == SizingType.Fill ? fillSpace : child.measuredSize.x;
                 childCrossSize = child.sizingY == SizingType.Fill ? innerHeight : child.measuredSize.y;
                 
+                // cross axis alignment calcuation (but on y-axis)
                 if (childAlignment == AxisAlignment.Start)
                     childCrossPosition = innerHeight - childCrossSize - padding.top;
                 else if (childAlignment == AxisAlignment.Center)
@@ -116,9 +122,9 @@ public class UIContainer : UIComponent
                 else if (childAlignment == AxisAlignment.End)
                     childCrossPosition = padding.bottom;
 
-                var childRect = new Rect(cursor, childCrossPosition, childCrossSize, childMainSize);
+                var childRect = new Rect(cursor, childCrossPosition, childMainSize, childCrossSize);
                 child.Arrange(childRect);
-                cursor += childCrossSize + childGap;
+                cursor += childMainSize + childGap;
             }
         }
     }
@@ -129,8 +135,15 @@ public class UIContainer : UIComponent
         size.x -= padding.left + padding.right;
         size.y -= padding.top + padding.bottom;
 
+        if (sizingX == SizingType.FitContent)
+            size.x = 0;
+        if (sizingY == SizingType.FitContent)
+            size.y = 0;
+
         foreach (var child in children)
+        {
             child.Measure(size);
+        }
     }
 
     public override void OnMeasure(Vector2 availableSize)
