@@ -43,8 +43,8 @@ public class UIContainer : UIComponent
         rectTransform.anchoredPosition = finalRect.position;
         rectTransform.sizeDelta = finalRect.size;
 
-        var innerWidth = finalRect.width - padding.left - padding.right;
-        var innerHeight = finalRect.height - padding.top - padding.bottom;
+        var innerWidth = finalRect.width - (padding.left + padding.right);
+        var innerHeight = finalRect.height - (padding.top + padding.bottom);
 
         float mainAxisSpace = 0;
         int fillCount = 0;
@@ -61,7 +61,7 @@ public class UIContainer : UIComponent
             mainAxisSpace = innerHeight - totalChildGap;
             for (int i = 0; i < childList.Count; i++)
             {
-                var child = children[i];
+                var child = childList[i];
                 if (child.sizingY != SizingType.Fill)
                     mainAxisSpace -= child.measuredSize.y;
                 else
@@ -70,7 +70,6 @@ public class UIContainer : UIComponent
             
             // the space remaining for children w/ fill y-sizing, split evenly
             fillSpace = mainAxisSpace / Mathf.Max(1f, fillCount);
-            
             cursor = innerHeight;
             for (int i = 0; i < childList.Count; i++)
             {
@@ -91,7 +90,7 @@ public class UIContainer : UIComponent
                 else if (childAlignment == AxisAlignment.End)
                     childCrossPosition = innerWidth - childCrossSize - padding.right;
 
-                var childRect = new Rect(childCrossPosition, cursor, childCrossSize, childMainSize);
+                var childRect = new Rect(childCrossPosition, cursor + padding.bottom, childCrossSize, childMainSize);
                 child.Arrange(childRect);
             }
         }
@@ -116,7 +115,7 @@ public class UIContainer : UIComponent
                 
                 // cross axis alignment calcuation (but on y-axis)
                 if (childAlignment == AxisAlignment.Start)
-                    childCrossPosition = innerHeight - childCrossSize - padding.top;
+                    childCrossPosition = innerHeight - childCrossSize;
                 else if (childAlignment == AxisAlignment.Center)
                     childCrossPosition = (innerHeight - childMainSize) / 2f;
                 else if (childAlignment == AxisAlignment.End)
