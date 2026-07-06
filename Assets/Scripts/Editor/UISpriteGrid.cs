@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class UISpriteGrid
 {
@@ -17,27 +18,27 @@ public class UISpriteGrid
 
     public UISpriteGrid(int width, int height)
     {
-        rows.Add(new Dimension(width, 0));
-        columns.Add(new Dimension(height, 0));
+        stride = width;
+        rows.Add(new Dimension(height, 0));
+        columns.Add(new Dimension(width, 0));
         data = new bool[width * height];
     }
 
     List<Dimension> rows = new List<Dimension>();
     List<Dimension> columns = new List<Dimension>();
     bool[] data;
-    const int kGridSize = 400;
+    int stride;
 
     public int rowsCount => rows.Count;
     public int columnsCount => columns.Count;
 
-    public int GetDataLocation(int x, int y) => kGridSize * y + x;
+    public int GetDataLocation(int x, int y) => stride * y + x;
     
     public int GetRowHeight(int y) => rows[y].size;
     public int GetColumnWidth(int x) => columns[x].size;
 
     public bool Get(int x, int y)
     {
-        
         int rowIndex = rows[y].index;
         int columnIndex = columns[x].index;
 
@@ -73,4 +74,13 @@ public class UISpriteGrid
         columns[atX + 1].size = oldRowWidth;
     }
 
+    public void AddRow(int height)
+    {
+        rows.Add(new Dimension(height, columns.Count));
+    }
+
+    public void AddColumn(int width)
+    {
+        columns.Add(new Dimension(width, rows.Count));
+    }
 }

@@ -2,35 +2,30 @@ using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 using System.IO;
-using Unity.VisualScripting;
+using UnityEngine.Pool;
 
-public struct PackedTexture
-{
-    public Texture2D texture;
-    public int x;
-    public int y;
-    public bool wasPacked;
-
-    public int w => texture.width;
-    public int h => texture.height;
-}
+// Grid splitting algorithm for rect packing adapted from
+// https://www.david-colson.com/2020/03/10/exploring-rect-packing.html
 
 public class UISpritePacker
 {
-    static Texture2D atlas;
-    
     const int kAtlasSize = 2064;
+    const int kMaxSpriteSize = 1024;
+    const int kMaxAtlasSize = 8192;
+    static int currentAtlasSize;
     const string kSavePath = "Data/UI";
 
     [MenuItem("Tools/Pack UI Sprites")]
     public static void PackSprites()
     {
-        atlas = new Texture2D(kAtlasSize, kAtlasSize, TextureFormat.RGBA32, false);
+        currentAtlasSize = kAtlasSize;
+        var atlas = new Texture2D(kAtlasSize, kAtlasSize, TextureFormat.RGBA32, false);
+        var uvPositions = new List<UISpriteLookupEntry>();
 
         var guidStrings = AssetDatabase.FindAssets("", new string[] {"Assets/Sprites"});
         if (guidStrings.Length == 0)
         {
-            Debug.Log("No sprites to pack. Aboring");
+            Debug.Log("No sprites to pack. Aborting");
             return;
         }
         
@@ -50,7 +45,7 @@ public class UISpritePacker
         Debug.Log("Packing sprites...");
         UISpriteGrid grid = new UISpriteGrid(kAtlasSize, kAtlasSize);
 
-        foreach (var texture in textures)
+        bool TryPackTexture(Texture2D texture)
         {
             bool done = false;
             int yPos = 0;
@@ -61,10 +56,35 @@ public class UISpritePacker
                 {
                     Vector2Int leftOverSize = Vector2Int.zero;
                     Vector2Int requiredNodes = Vector2Int.zero;
+
                     if (CanBePlaced(grid, new Vector2Int(x, y), new Vector2Int(texture.width, texture.height), out requiredNodes, out leftOverSize))
                     {
                         done = true;
-                        var pixels = texture.GetPixels();
+                        RenderTexture rt = RenderTexture.GetTemporary(texture.width, texture.height, 0, RenderTextureFormat.ARGB32);
+                        Graphics.Blit(texture, rt);
+
+                        RenderTexture prev = RenderTexture.active;
+                        RenderTexture.active = rt;
+
+                        Texture2D readable = new Texture2D(texture.width, texture.height, TextureFormat.RGBA32, false);
+                        readable.ReadPixels(new Rect(0, 0, texture.width, texture.height), 0, 0);
+                        readable.Apply();
+
+                        RenderTexture.active = prev;
+                        RenderTexture.ReleaseTemporary(rt);
+
+                        var path = AssetDatabase.GetAssetPath(texture);
+                        var guid = AssetDatabase.GUIDFromAssetPath(path).ToString();
+                        var uvPosition = new Rect(xPos, yPos, texture.width, texture.height);
+                        uvPositions.Add(
+                            new UISpriteLookupEntry()
+                            {
+                                guid = guid,
+                                uvRect = uvPosition,
+                            }
+                        );
+
+                        var pixels = readable.GetPixels();
                         atlas.SetPixels(xPos, yPos, texture.width, texture.height, pixels);
 
                         int xFarRightColumn = x + requiredNodes.x - 1;
@@ -85,23 +105,72 @@ public class UISpritePacker
                 yPos += grid.GetRowHeight(y);
             }
 
-            if (!done)
+            return done;
+        }
+
+        foreach (var texture in textures)
+        {
+            if (texture.width > kMaxSpriteSize || texture.height > kMaxSpriteSize)
             {
-                Debug.Log($"Not done. {texture.name}");
+                Debug.LogWarning($"Texture exceeds the max sprite size of {kMaxSpriteSize}. Skipping over texture ({texture.name})");
                 continue;
             }
-            else
+
+            bool done = TryPackTexture(texture);
+            while (!done)
             {
-                Debug.Log($"Sprite packed: {texture.name}");
+                if (currentAtlasSize * 2 > kMaxAtlasSize)
+                {
+                    Debug.LogError("Atlas size exceeds max size. Aborting...");
+                    return;
+                }
+                grid.AddRow(currentAtlasSize);
+                grid.AddColumn(currentAtlasSize);
+
+                currentAtlasSize *= 2;
+                var newAtlas = new Texture2D(currentAtlasSize, currentAtlasSize, TextureFormat.RGBA32, false);
+                var pixels = atlas.GetPixels();
+                newAtlas.SetPixels(0, 0, atlas.width, atlas.height, pixels);
+                atlas = newAtlas;
+                done = TryPackTexture(texture);
             }
         }
 
         string directory = $"{Application.dataPath}/{kSavePath}";
-        if (!Directory.Exists(kSavePath))
+        if (!Directory.Exists(directory))
             Directory.CreateDirectory(directory);
 
         byte[] bytes = ImageConversion.EncodeToPNG(atlas);
         File.WriteAllBytes(directory + "/atlas.png", bytes);
+        AssetDatabase.Refresh();
+
+        Debug.Log("Sprites packed. Saving to asset...");
+        var spriteAtlas = ScriptableObject.CreateInstance<UISpriteAtlas>();
+        spriteAtlas.atlas = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Data/UI/atlas.png");
+
+        List<UISpriteLookupEntry> normalized = new List<UISpriteLookupEntry>();
+        foreach (var uvPos in uvPositions)
+        {
+            normalized.Add(new UISpriteLookupEntry()
+            {
+                guid = uvPos.guid,
+                uvRect = new Rect()
+                {
+                    x = (float)uvPos.uvRect.x / currentAtlasSize,
+                    y = (float)uvPos.uvRect.y / currentAtlasSize,
+                    width = (float)uvPos.uvRect.width / currentAtlasSize,
+                    height = (float)uvPos.uvRect.height / currentAtlasSize
+                }
+            });
+        }
+        spriteAtlas.uvPositions = normalized;
+        
+        AssetDatabase.CreateAsset(spriteAtlas, "Assets/Data/UI/UISpriteAtlas.asset");
+        AssetDatabase.SaveAssets(); 
+        AssetDatabase.Refresh();
+        AssetImporter.GetAtPath("Assets/Data/UI/UISpriteAtlas.asset").assetBundleName = "ui";
+        
+        Debug.Log($"Complete. Sprite atlas saved at {directory}");
     }
 
     static bool CanBePlaced(UISpriteGrid grid, Vector2Int desiredNode, Vector2Int desiredRectSize, out Vector2Int requiredNodes, out Vector2Int remainingSize)
@@ -123,7 +192,7 @@ public class UISpritePacker
             // ran out of space
             if (trialY >= grid.rowsCount)
                 return false;
-            
+
             while (foundWidth < desiredRectSize.x)
             {
                 if (trialX >= grid.columnsCount)
